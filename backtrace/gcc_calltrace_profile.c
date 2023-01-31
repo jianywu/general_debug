@@ -1,4 +1,4 @@
-// gcc -o test test.c -finstrument-functions && test
+// gcc -o test gcc_calltrace_profile.c -finstrument-functions && ./test
 #include <stdio.h>
 
 __attribute__((no_instrument_function)) void __cyg_profile_func_enter(void* this_fn, void* call_site) {
