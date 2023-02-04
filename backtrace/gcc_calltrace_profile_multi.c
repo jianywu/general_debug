@@ -21,10 +21,10 @@ __cyg_profile_func_enter() and __cyg_profile_func_exit() is generate by -finstru
 #include <pthread.h>
 #include <stdlib.h>
 
-#define STACK_TRACE_DEPTH 4
+#define STACK_TRACE_DEPTH 6
 
 typedef struct {
-    void* frame[STACK_TRACE_DEPTH];
+    unsigned long* frame[STACK_TRACE_DEPTH];
     int current;
 } thread_stack_t;
 
@@ -58,45 +58,51 @@ __attribute__((no_instrument_function)) void __cyg_profile_func_enter(void* this
     thread_stack_t* ptr = get_backtrace_info();
     if (ptr->current > 0) {
         // why need -4 here?
-        ptr->frame[ptr->current--] = (void*)((unsigned long)call_site - 4);
+        ptr->frame[ptr->current--] = (unsigned long *)((unsigned long)call_site - 4);
         // ptr->frame[ptr->current--] = call_site;
     }
     printf("enter %p, caller %p\n", this_func, call_site);
 }
 
 __attribute__((no_instrument_function)) void __cyg_profile_func_exit(void* this_func, void* call_site) {
+    (void)this_func;
+    (void)call_site;
     pthread_once(&sBackTraceOnce, init_once);
     thread_stack_t* ptr = get_backtrace_info();
     if (++ptr->current >= STACK_TRACE_DEPTH) {
         ptr->current = STACK_TRACE_DEPTH - 1;
-    }
+	}
 }
 
 __attribute__((no_instrument_function))
 static int get_tls_backtrace(void** backtrace, int max) {
     pthread_once(&sBackTraceOnce, init_once);
     int count = max;
-    int i;
     thread_stack_t* ptr = get_backtrace_info();
     if (STACK_TRACE_DEPTH - 1 - ptr->current < count) {
         count = STACK_TRACE_DEPTH - 1 - ptr->current;
     }
     if (count > 0) {
-        memcpy(backtrace, &ptr->frame[ptr->current + 1], sizeof(void*) * count);
-    }
-    printf("in func %s():\n", __func__);
-    // here frame 0 addr is 0, so no need to print.
-    for (i = 1; i <= count; i++) {
-        printf("frame[%d] addr:0x%zx\n", ptr->current + i, ptr->frame[ptr->current + i]);
+        memcpy(backtrace, &ptr->frame[ptr->current + 1], sizeof(unsigned long*) * count);
     }
     return count;
 }
 
 static void bar(void) {
     int i;
-    unsigned long backtrace[STACK_TRACE_DEPTH];
+    thread_stack_t backtrace[STACK_TRACE_DEPTH];
+    memset(backtrace, 0, sizeof(backtrace));
     void* ptr = &backtrace;
+    // unsigned long *f = (unsigned long *)backtrace->frame;
     int count = get_tls_backtrace(ptr, STACK_TRACE_DEPTH);
+    printf("count is %d, current 0x%x\n", count, backtrace->current);
+    for (i = 0; i < count; i++) {
+        printf("frame[%d] addr:0x%zx\n", i, backtrace->frame[i]);
+        // printf("frame[%d] addr:0x%zx\n", i, f[i]);
+    }
+    for (i = count; i < 6; i++) {
+        printf("Exceed count test, addr should be 0, frame[%d] addr:0x%zx\n", i, backtrace->frame[i]);
+    }
 }
 
 static void foo(void) {
