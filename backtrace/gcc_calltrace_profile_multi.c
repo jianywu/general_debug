@@ -71,7 +71,7 @@ __attribute__((no_instrument_function)) void __cyg_profile_func_exit(void* this_
     thread_stack_t* ptr = get_backtrace_info();
     if (++ptr->current >= STACK_TRACE_DEPTH) {
         ptr->current = STACK_TRACE_DEPTH - 1;
-	}
+    }
 }
 
 __attribute__((no_instrument_function))
